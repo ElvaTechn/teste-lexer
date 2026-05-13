@@ -1,77 +1,70 @@
-# token.py
 from enum import Enum
-from dataclasses import dataclass
 
 class TokenType(Enum):
-    # Palavras reservadas
-    PROGRAM = "PROGRAM"
-    VAR = "VAR"
-    ARRAY = "ARRAY"
-    OF = "OF"
-    BEGIN = "BEGIN"
-    END = "END"
-    IF = "IF"
-    THEN = "THEN"
-    ELSE = "ELSE"
-    WHILE = "WHILE"
-    DO = "DO"
-    READ = "READ"
-    WRITE = "WRITE"
-    TRUE = "TRUE"
-    FALSE = "FALSE"
+    # Palavras Reservadas (Keywords)
+    PROGRAM = 'PROGRAM'
+    VAR = 'VAR'
+    ARRAY = 'ARRAY'
+    OF = 'OF'
+    BEGIN = 'BEGIN'
+    END = 'END'
+    IF = 'IF'
+    THEN = 'THEN'
+    ELSE = 'ELSE'
+    WHILE = 'WHILE'
+    DO = 'DO'
+    READ = 'READ'
+    WRITE = 'WRITE'
+    TRUE = 'TRUE'
+    FALSE = 'FALSE'
+    CHAR = 'CHAR'
+    INTEGER = 'INTEGER'
+    BOOLEAN = 'BOOLEAN'
+    FUNCTION = 'FUNCTION'
+    PROCEDURE = 'PROCEDURE'
     
-    # Tipos
-    INTEGER = "INTEGER"
-    CHAR = "CHAR"
-    BOOLEAN = "BOOLEAN"
-    
-    # Identificadores e constantes
-    IDENTIFIER = "IDENTIFIER"
-    INT_CONST = "INT_CONST"
-    CHAR_CONST = "CHAR_CONST"
-    
-    # Operadores relacionais
-    EQUAL = "EQUAL"           # =
-    NOT_EQUAL = "NOT_EQUAL"   # <>
-    LESS = "LESS"             # <
-    LESS_EQUAL = "LESS_EQUAL" # <=
-    GREATER = "GREATER"       # >
-    GREATER_EQUAL = "GREATER_EQUAL" # >=
-    
-    # Operadores lógicos
-    OR = "OR"
-    AND = "AND"
-    NOT = "NOT"
-    
-    # Operadores aritméticos
-    PLUS = "PLUS"     # +
-    MINUS = "MINUS"   # -
-    MULTIPLY = "MULTIPLY"  # *
-    DIV = "DIV"       # div
-    
-    # Delimitadores
-    ASSIGN = "ASSIGN"       # :=
-    SEMICOLON = "SEMICOLON" # ;
-    COLON = "COLON"         # :
-    DOT = "DOT"             # .
-    COMMA = "COMMA"         # ,
-    LPAREN = "LPAREN"       # (
-    RPAREN = "RPAREN"       # )
-    LBRACKET = "LBRACKET"   # [
-    RBRACKET = "RBRACKET"   # ]
-    DOTDOT = "DOTDOT"       # ..
-    
-    # Erro
-    ERROR = "ERROR"
-    EOF = "EOF"
+    # Operadores que são palavras (também Keywords)
+    DIV = 'DIV'
+    OR = 'OR'
+    AND = 'AND'
+    NOT = 'NOT'
 
+    # Identificadores e Constantes
+    IDENTIFIER = 'IDENTIFIER'
+    INT_CONST = 'INTEGER_CONSTANT'
+    CHAR_CONST = 'CHARACTER_CONSTANT'
 
-@dataclass
+    # Símbolos Especiais
+    PLUS = 'PLUS'           # +
+    MINUS = 'MINUS'         # -
+    MULTIPLY = 'MULTIPLY'   # *
+    EQUAL = 'EQUAL'         # =
+    NOT_EQUAL = 'NOT_EQUAL' # <>
+    LESS = 'LESS'           # <
+    GREATER = 'GREATER'     # >
+    LESS_EQUAL = 'LESS_EQUAL' # <=
+    GREATER_EQUAL = 'GREATER_EQUAL' # >=
+    LPAREN = 'LPAREN'       # (
+    RPAREN = 'RPAREN'       # )
+    LBRACKET = 'LBRACKET'   # [
+    RBRACKET = 'RBRACKET'   # ]
+    ASSIGN = 'ASSIGN'       # :=
+    DOT = 'DOT'             # .
+    COMMA = 'COMMA'         # ,
+    SEMICOLON = 'SEMICOLON' # ;
+    COLON = 'COLON'         # :
+    DOTDOT = 'DOTDOT'       # ..
+
+    # Diversos
+    EOF = 'EOF'
+    ERROR = 'ERROR'
+
 class Token:
-    type: TokenType
-    lexeme: str
-    line: int
-    column: int
-    
-    def __str__(self):
-        return f"Token({self.type.value}, '{self.lexeme}', line={self.line}, col={self.column})"
+    def __init__(self, type: TokenType, lexeme: str, line: int, column: int):
+        self.type = type
+        self.lexeme = lexeme
+        self.line = line
+        self.column = column
+
+    def __repr__(self):
+        return f"Token({self.type.name}, '{self.lexeme}', line={self.line}, col={self.column})"

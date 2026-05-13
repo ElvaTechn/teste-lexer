@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analisador Léxico — mini-Pascal · UEM LPC 2026</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     HEADER
+     ══════════════════════════════════════════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">λ</div>
+    <div class="logo-text">mini<span>Pascal</span> Lexer</div>
+  </div>
+  <div class="header-right">
+    <div class="header-badge">UEM · LPC · 2026</div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════
+     APP BODY
+     ══════════════════════════════════════════════ -->
+<div class="app-body">
+
+  <!-- ── SIDEBAR ─────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span>Explorador</span>
+      <div class="sidebar-actions">
+        <button class="icon-btn" title="Novo ficheiro" onclick="newFile()">＋</button>
+        <button class="icon-btn" title="Nova pasta" onclick="ctxNewFolder('src')">📁</button>
+        <button class="icon-btn" title="Recolher tudo" onclick="collapseAll()">⊟</button>
+      </div>
+    </div>
+    <div class="file-tree" id="file-tree"></div>
+    <div class="resize-handle" id="resize-handle"></div>
+  </aside>
+
+  <!-- ── WORKSPACE ───────────────────────────── -->
+  <div class="workspace">
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <button class="btn btn-secondary" onclick="novoProjecto()">📁 Novo Projecto</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('open-project-input').click()">📂 Abrir</button>
+      <input type="file" id="open-project-input" webkitdirectory directory multiple style="display:none" onchange="abrirProjecto(this.files)">
+      <div class="status-sep"></div>
+      <button class="btn btn-primary" onclick="analisar()">▶ Analisar</button>
+      <button class="btn btn-secondary" onclick="limparTudo()">✕ Limpar</button>
+      <select class="sample-select" onchange="loadSample(this.value)">
+        <option value="">Exemplos…</option>
+        <option value="basic">Programa básico</option>
+        <option value="loop">Ciclo e condição</option>
+        <option value="errors">Com erros léxicos</option>
+      </select>
+      <div class="spacer"></div>
+      <div class="stat-chip" id="stat-tokens"><strong>0</strong> tokens</div>
+      <div class="stat-chip" id="stat-errors"><strong>0</strong> erros</div>
+      <div class="stat-chip" id="stat-lines"><strong>0</strong> linhas</div>
+    </div>
+
+    <!-- EDITOR + RESULTS -->
+    <div class="editor-results">
+
+      <!-- EDITOR -->
+      <div class="editor-panel">
+        <div class="panel-header">
+          <span class="dot"></span>
+          <span class="file-label" id="active-file-label">main.pas</span>
+        </div>
+        <div class="editor-wrapper">
+          <div class="line-numbers" id="line-numbers">1</div>
+          <textarea
+            id="code-input"
+            spellcheck="false"
+            placeholder="Escreva ou cole código mini-Pascal aqui…"
+            oninput="updateLineNumbers()"
+            onscroll="syncScroll()"
+            onkeydown="handleTab(event)"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="results-panel">
+        <div class="tabs">
+          <div class="tab active"  onclick="switchTab('tokens', this)">Tokens</div>
+          <div class="tab"         onclick="switchTab('errors', this)">Erros</div>
+          <div class="tab"         onclick="switchTab('ai',     this)">IA · Assistente</div>
+        </div>
+
+        <!-- TOKENS TAB -->
+        <div class="tab-content active" id="tab-tokens">
+          <div class="token-table-wrapper">
+            <div class="empty" id="tokens-empty">
+              <div class="empty-icon">⌨</div>
+              <div>Analise o código para ver os tokens</div>
+            </div>
+            <table id="token-table" style="display:none">
+              <thead>
+                <tr>
+                  <th>Linha</th>
+                  <th>Col</th>
+                  <th>Lexema</th>
+                  <th>Classe</th>
+                </tr>
+              </thead>
+              <tbody id="token-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ERRORS TAB -->
+        <div class="tab-content" id="tab-errors">
+          <div class="errors-list" id="errors-list">
+            <div class="empty" id="errors-empty">
+              <div class="empty-icon">✓</div>
+              <div>Nenhum erro detectado</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI TAB -->
+        <div class="tab-content" id="tab-ai">
+          <div class="ai-panel" id="ai-panel">
+            <div class="ai-bubble assistant">Olá! Sou o assistente de análise léxica. Posso ajudá-lo a:
+
+• Explicar tokens e as suas classes
+• Identificar e corrigir erros léxicos
+• Explicar conceitos de análise léxica
+• Sugerir correcções para símbolos inválidos
+
+Analise primeiro o seu código ou faça-me uma pergunta!</div>
+          </div>
+          <div class="ai-input-row">
+            <input
+              type="text"
+              id="ai-question"
+              placeholder="Pergunte ao assistente sobre o código ou análise léxica…"
+              onkeydown="if(event.key==='Enter') askAI()"
+            >
+            <button class="btn btn-primary" onclick="askAI()">Enviar</button>
+          </div>
+        </div>
+
+      </div><!-- /results-panel -->
+    </div><!-- /editor-results -->
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <span id="status-msg">Pronto</span>
+      <div class="status-sep"></div>
+      <span id="cursor-pos">Ln 1, Col 1</span>
+      <div class="spacer"></div>
+      <span style="color:var(--muted)">mini-Pascal DFA Lexer v1.0</span>
+    </div>
+
+  </div><!-- /workspace -->
+</div><!-- /app-body -->
+
+<!-- ══════════════════════════════════════════════
+     CONTEXT MENU
+     ══════════════════════════════════════════════ -->
+<div class="context-menu" id="ctx-menu">
+  <div class="ctx-item" id="ctx-new-file"   onclick="ctxNewFile()">   📄 Novo ficheiro</div>
+  <div class="ctx-item" id="ctx-new-folder" onclick="ctxNewFolder()"> 📁 Nova pasta</div>
+  <div class="ctx-sep"  id="ctx-sep1"></div>
+  <div class="ctx-item"                      onclick="ctxRename()">   ✏️ Renomear</div>
+  <div class="ctx-item danger"               onclick="ctxDelete()">   🗑 Eliminar</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODAL
+     ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title">Novo ficheiro</h3>
+    <input
+      type="text"
+      id="modal-input"
+      placeholder="Nome…"
+      onkeydown="if(event.key==='Enter') confirmModal(); if(event.key==='Escape') cancelModal()"
+    >
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+      <button class="btn btn-primary"   onclick="confirmModal()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCRIPTS
+     ══════════════════════════════════════════════ -->
+<script type="module" src="js/main.js"></script>
+<script>
+  /* collapseAll — botão da sidebar */
+  function collapseAll() {
+    function collapse(nodes) { nodes.forEach(n => { if (n.type==='folder') { n.open=false; if(n.children) collapse(n.children); } }); }
+    collapse(FS.tree);
+    renderTree();
+  }
+</script>
+
+</body>
+</html>

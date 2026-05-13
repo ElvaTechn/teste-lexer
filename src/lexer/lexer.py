@@ -33,9 +33,11 @@ class Lexer:
             'write': TokenType.WRITE,
             'true': TokenType.TRUE,
             'false': TokenType.FALSE,
-            'integer': TokenType.INTEGER,
             'char': TokenType.CHAR,
+            'integer': TokenType.INTEGER,
             'boolean': TokenType.BOOLEAN,
+            'function': TokenType.FUNCTION,
+            'procedure': TokenType.PROCEDURE,
             'div': TokenType.DIV,
             'or': TokenType.OR,
             'and': TokenType.AND,
@@ -45,9 +47,6 @@ class Lexer:
         self.tokens = []
         self.errors = []
 
-    # -----------------------------
-    # AVANÇO
-    # -----------------------------
     def advance(self):
         if self.pos < self.length - 1:
             self.pos += 1
@@ -62,9 +61,6 @@ class Lexer:
             return self.source[self.pos + 1]
         return None
 
-    # -----------------------------
-    # ESPAÇOS E COMENTÁRIOS
-    # -----------------------------
     def skip_whitespace_and_comments(self):
         while self.current_char:
             if self.current_char.isspace():
@@ -85,25 +81,6 @@ class Lexer:
                 else:
                     self.add_error("Unterminated comment '{'", self.line, self.col)
                 continue
-
-            # Comentário (* ... *)
-            if self.current_char == '(' and self.peek() == '*':
-                self.advance() # (
-                self.advance() # *
-                while self.current_char:
-                    if self.current_char == '*' and self.peek() == ')':
-                        self.advance() # *
-                        self.advance() # )
-                        break
-                    if self.current_char == '\n':
-                        self.line += 1
-                        self.col = 0
-                    self.advance()
-                else:
-                    self.add_error("Unterminated comment '(*'", self.line, self.col)
-                continue
-            
-            # Se não for espaço nem comentário, sai do loop
             break
 
     def skip_whitespace(self):
@@ -113,9 +90,6 @@ class Lexer:
                 self.col = 0
             self.advance()
 
-    # -----------------------------
-    # IDENTIFICADORES / KEYWORDS
-    # -----------------------------
     def read_identifier_or_keyword(self):
         start_col = self.col
         start_line = self.line
@@ -129,17 +103,17 @@ class Lexer:
 
         word = result.lower()
 
-        # 1. Verifica se é uma palavra reservada (Keyword)
         if word in self.keywords:
             return Token(self.keywords[word], result, start_line, start_col)
 
-        # 2. Se não for keyword, no Pascal é um Identificador (ID)
-        # Identificadores devem começar com letra ou underscore (já garantido pelo get_next_token)
+        # Mecanismo de Recuperação / Sugestão de Typo
+        suggestion = self.recovery.suggest(result)
+        if suggestion and "Did you mean" in suggestion:
+            self.add_error(f"Possible keyword typo: '{result}'", start_line, start_col, result)
+            return Token(TokenType.ERROR, result, start_line, start_col)
+
         return Token(TokenType.IDENTIFIER, result, start_line, start_col)
 
-    # -----------------------------
-    # NÚMEROS
-    # -----------------------------
     def read_number(self):
         start_col = self.col
         start_line = self.line
@@ -149,30 +123,19 @@ class Lexer:
             result += self.current_char
             self.advance()
 
-        # Erro: Número seguido de letra (ex: 12abc)
         if self.current_char and (self.current_char.isalpha() or self.current_char == '_'):
             while self.current_char and (self.current_char.isalnum() or self.current_char == '_'):
                 result += self.current_char
                 self.advance()
-            
-            self.add_error(
-                f"Malformed number: '{result}'",
-                start_line,
-                start_col,
-                result
-            )
+            self.add_error(f"Malformed number: '{result}'", start_line, start_col, result)
             return Token(TokenType.ERROR, result, start_line, start_col)
 
         return Token(TokenType.INT_CONST, result, start_line, start_col)
 
-    # -----------------------------
-    # CHAR CONSTANT
-    # -----------------------------
     def read_char_constant(self):
         start_col = self.col
         start_line = self.line
-
-        self.advance()
+        self.advance() # '
         result = ''
 
         while self.current_char and self.current_char != "'":
@@ -182,160 +145,74 @@ class Lexer:
         if self.current_char == "'":
             self.advance()
         else:
-            self.add_error(
-                "Unterminated character constant",
-                start_line,
-                start_col,
-                result
-            )
+            self.add_error("Unterminated character constant", start_line, start_col, result)
 
         return Token(TokenType.CHAR_CONST, result, start_line, start_col)
 
-    # -----------------------------
-    # SÍMBOLOS
-    # -----------------------------
     def read_special_symbol(self):
         start_col = self.col
         start_line = self.line
         char = self.current_char
         next_char = self.peek()
 
+        # Operadores Duplos
         if char == ':' and next_char == '=':
             self.advance(); self.advance()
             return Token(TokenType.ASSIGN, ':=', start_line, start_col)
-
         if char == '<' and next_char == '>':
             self.advance(); self.advance()
             return Token(TokenType.NOT_EQUAL, '<>', start_line, start_col)
-
         if char == '<' and next_char == '=':
             self.advance(); self.advance()
             return Token(TokenType.LESS_EQUAL, '<=', start_line, start_col)
-
         if char == '>' and next_char == '=':
             self.advance(); self.advance()
             return Token(TokenType.GREATER_EQUAL, '>=', start_line, start_col)
-
         if char == '.' and next_char == '.':
             self.advance(); self.advance()
             return Token(TokenType.DOTDOT, '..', start_line, start_col)
 
         symbols = {
-            '+': TokenType.PLUS,
-            '-': TokenType.MINUS,
-            '*': TokenType.MULTIPLY,
-            '=': TokenType.EQUAL,
-            '<': TokenType.LESS,
-            '>': TokenType.GREATER,
-            '(': TokenType.LPAREN,
-            ')': TokenType.RPAREN,
-            '[': TokenType.LBRACKET,
-            ']': TokenType.RBRACKET,
-            '.': TokenType.DOT,
-            ',': TokenType.COMMA,
-            ';': TokenType.SEMICOLON,
-            ':': TokenType.COLON,
+            '+': TokenType.PLUS, '-': TokenType.MINUS, '*': TokenType.MULTIPLY,
+            '=': TokenType.EQUAL, '<': TokenType.LESS, '>': TokenType.GREATER,
+            '(': TokenType.LPAREN, ')': TokenType.RPAREN, '[': TokenType.LBRACKET,
+            ']': TokenType.RBRACKET, '.': TokenType.DOT, ',': TokenType.COMMA,
+            ';': TokenType.SEMICOLON, ':': TokenType.COLON,
         }
 
         if char in symbols:
             self.advance()
             return Token(symbols[char], char, start_line, start_col)
 
-        self.add_error(
-            f"Invalid character: '{char}'",
-            start_line,
-            start_col,
-            char
-        )
-
+        self.add_error(f"Invalid character: '{char}'", start_line, start_col, char)
         self.advance()
         return Token(TokenType.ERROR, char, start_line, start_col)
 
-    # -----------------------------
-    # ERROS
-    # -----------------------------
     def add_error(self, message, line, col, invalid_token=None):
-        suggestion = None
-
-        if invalid_token:
-            suggestion = self.recovery.suggest(invalid_token)
-
+        suggestion = self.recovery.suggest(invalid_token) if invalid_token else None
         self.errors.append({
-            'message': message,
-            'line': line,
-            'column': col,
-            'token': invalid_token,
-            'suggestion': suggestion
+            'message': message, 'line': line, 'column': col,
+            'token': invalid_token, 'suggestion': suggestion
         })
 
-    # -----------------------------
-    # TOKEN PRINCIPAL
-    # -----------------------------
     def get_next_token(self):
         self.skip_whitespace_and_comments()
-
         if not self.current_char:
             return Token(TokenType.EOF, '', self.line, self.col)
-
         if self.current_char.isalpha() or self.current_char == '_':
             return self.read_identifier_or_keyword()
-
         if self.current_char.isdigit():
             return self.read_number()
-
         if self.current_char == "'":
             return self.read_char_constant()
-
         return self.read_special_symbol()
 
-    # -----------------------------
-    # TOKENIZAÇÃO
-    # -----------------------------
     def tokenize(self):
         self.tokens = []
         self.errors = []
-
         while True:
             token = self.get_next_token()
             self.tokens.append(token)
-
             if token.type == TokenType.EOF:
                 break
-
         return self.tokens, self.errors
-
-    # -----------------------------
-    # DEBUG
-    # -----------------------------
-    def print_tokens(self):
-        print("\nTOKENS")
-        print("=" * 50)
-        for t in self.tokens:
-            print(t)
-
-        if self.errors:
-            print("\nERROS")
-            print("=" * 50)
-            for e in self.errors:
-                print(
-                    f"Linha {e['line']} Col {e['column']} - "
-                    f"{e['message']} | Suggestion: {e['suggestion']}"
-                )
-
-
-
-if __name__ == "__main__":
-
-    codigo = """
-    program begn; { Comentário estilo Pascal }
-    var x : integre; (* Comentário estilo alternativo *)
-    x := 12abc;
-    { Comentário não fechado
-    @#
-    """
-
-    lexer = Lexer(codigo)
-
-    tokens, errors = lexer.tokenize()
-
-    lexer.print_tokens()
